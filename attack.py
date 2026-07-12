@@ -50,7 +50,7 @@ def main() -> None:
 
     print(f"Live-attacking target: {args.target} (budget: {MAX_ROUNDS} attempts)\n")
 
-    report = run_agent_loop(
+    result = run_agent_loop(
         client,
         model=MODEL,
         max_tokens=AGENT_MAX_TOKENS,
@@ -60,6 +60,7 @@ def main() -> None:
         dispatch=make_dispatch(client, target_text),
         max_iterations=MAX_ROUNDS,
     )
+    report = result.final_text
 
     print("\n" + report)
 
