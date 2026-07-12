@@ -15,7 +15,7 @@ import anthropic
 from dotenv import load_dotenv
 
 from core.agent_loop import run_agent_loop
-from core.util import MODEL
+from core.util import MODEL, read_target
 from domains.security.red_agent import (
     AGENT_MAX_TOKENS,
     AGENT_SYSTEM_PROMPT,
@@ -24,7 +24,6 @@ from domains.security.red_agent import (
     build_kickoff_messages,
     make_dispatch,
 )
-from redteam import read_target
 
 load_dotenv()
 

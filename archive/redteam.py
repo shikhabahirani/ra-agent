@@ -17,9 +17,10 @@ import sys
 import anthropic
 from dotenv import load_dotenv
 
+from core.util import MODEL, read_target
+
 load_dotenv()
 
-MODEL = "claude-sonnet-5"
 MAX_TOKENS = 4096
 DEFAULT_TARGET_PATH = "target.txt"
 REPORT_PATH = "report.md"
@@ -79,15 +80,6 @@ illustrative (max ~2 sentences) so a developer can understand and reproduce \
 the class of issue - never provide working malware, obfuscated payloads, or \
 multi-step operational attack instructions.
 """
-
-
-def read_target(path: str) -> str:
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return f.read()
-    except FileNotFoundError:
-        print(f"Error: target file not found: {path}", file=sys.stderr)
-        sys.exit(1)
 
 
 def run_redteam(client: anthropic.Anthropic, target_text: str) -> str:

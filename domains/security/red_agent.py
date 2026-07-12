@@ -4,7 +4,7 @@ using the shared attack taxonomy, and writes an evidence-backed report.
 
 Plugs into core.agent_loop.run_agent_loop as: this system prompt, this one
 tool, and a dispatch closure that routes attempt_attack calls to
-domains.security.target.send_message_to_target and
+domains.security.probe.probe_target and
 domains.security.judge.judge_attempt.
 """
 
@@ -13,7 +13,7 @@ import json
 import anthropic
 
 from domains.security.judge import judge_attempt
-from domains.security.target import send_message_to_target
+from domains.security.probe import probe_target
 
 MAX_ROUNDS = 3
 AGENT_MAX_TOKENS = 3072
@@ -159,7 +159,7 @@ def dispatch_attempt_attack(client: anthropic.Anthropic, target_system_prompt: s
     print(f"  -> {message}")
 
     try:
-        target_response = send_message_to_target(client, target_system_prompt, message)
+        target_response = probe_target(client, target_system_prompt, message)
     except Exception as exc:
         print(f"  ! target call failed: {exc}")
         return True, f"Error calling target: {exc}"
