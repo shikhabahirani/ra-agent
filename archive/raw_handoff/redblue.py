@@ -25,6 +25,8 @@ from domains.security.blue_agent import (
     build_kickoff_messages as build_blue_kickoff,
     make_dispatch as make_blue_dispatch,
 )
+from domains.security.judge import judge_attempt
+from domains.security.probe import probe_target
 from domains.security.red_agent import (
     AGENT_MAX_TOKENS as RED_MAX_TOKENS,
     AGENT_SYSTEM_PROMPT as RED_SYSTEM_PROMPT,
@@ -67,7 +69,7 @@ def main() -> None:
             system_prompt=RED_SYSTEM_PROMPT,
             tools=[ATTEMPT_ATTACK_TOOL],
             initial_messages=build_red_kickoff(target_text),
-            dispatch=make_red_dispatch(client, target_text),
+            dispatch=make_red_dispatch(client, target_text, probe_target, judge_attempt),
             max_iterations=RED_MAX_ROUNDS,
         )
 
@@ -80,7 +82,7 @@ def main() -> None:
             system_prompt=BLUE_SYSTEM_PROMPT,
             tools=[VERIFY_PATCH_TOOL],
             initial_messages=build_blue_kickoff(target_text, red_result.transcript),
-            dispatch=make_blue_dispatch(client),
+            dispatch=make_blue_dispatch(client, probe_target),
             max_iterations=BLUE_MAX_ROUNDS,
         )
 

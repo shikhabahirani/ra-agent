@@ -19,14 +19,20 @@ kept structurally separate from `failed_attempts`, with each vulnerability's
 exact `attack_input` string injected into Blue's context as its own field,
 not embedded in prose Blue would have to extract it from.
 
-Both modes verify patches via the same verify_patch tool, wrapping the
-shared domains.security.probe.probe_target Red used, but against Blue's own
-patched prompt.
+Both modes verify patches via the same verify_patch tool, wrapping the same
+probe function Red used, but against Blue's own patched prompt.
+
+This file does not import domains.security.probe - dispatch_verify_patch/
+make_dispatch take probe_fn as a parameter instead. Callers decide where it
+comes from: a direct import (see redblue_structured.py) or an
+MCP-discovered tool (see redblue_mcp.py).
 """
+
+from typing import Callable
 
 import anthropic
 
-from domains.security.probe import probe_target
+ProbeFn = Callable[[anthropic.Anthropic, str, str], str]
 
 MAX_ROUNDS = 2
 AGENT_MAX_TOKENS = 4096
@@ -199,7 +205,7 @@ def build_kickoff_messages_from_structured(target_text: str, red_report: dict) -
     ]
 
 
-def dispatch_verify_patch(client: anthropic.Anthropic, tool_input: dict) -> tuple[bool, str]:
+def dispatch_verify_patch(client: anthropic.Anthropic, tool_input: dict, probe_fn: ProbeFn) -> tuple[bool, str]:
     patched_system_prompt = tool_input.get("patched_system_prompt", "")
     test_message = tool_input.get("test_message", "")
 
@@ -207,7 +213,7 @@ def dispatch_verify_patch(client: anthropic.Anthropic, tool_input: dict) -> tupl
     print(f"  -> {test_message}")
 
     try:
-        response = probe_target(client, patched_system_prompt, test_message)
+        response = probe_fn(client, patched_system_prompt, test_message)
     except Exception as exc:
         print(f"  ! probe failed: {exc}")
         return True, f"Error probing patched target: {exc}"
@@ -216,7 +222,7 @@ def dispatch_verify_patch(client: anthropic.Anthropic, tool_input: dict) -> tupl
     return False, f"PATCHED TARGET RESPONSE:\n{response}"
 
 
-def make_dispatch(client: anthropic.Anthropic):
+def make_dispatch(client: anthropic.Anthropic, probe_fn: ProbeFn):
     count = {"n": 0}
 
     def dispatch(tool_name: str, tool_input: dict) -> tuple[bool, str]:
@@ -224,6 +230,6 @@ def make_dispatch(client: anthropic.Anthropic):
             return True, f"Unknown tool: {tool_name}"
         count["n"] += 1
         print(f"Verify {count['n']}/{MAX_ROUNDS}:")
-        return dispatch_verify_patch(client, tool_input)
+        return dispatch_verify_patch(client, tool_input, probe_fn)
 
     return dispatch

@@ -16,6 +16,8 @@ from dotenv import load_dotenv
 
 from core.agent_loop import run_agent_loop
 from core.util import MODEL, read_target
+from domains.security.judge import judge_attempt
+from domains.security.probe import probe_target
 from domains.security.red_agent import (
     AGENT_MAX_TOKENS,
     AGENT_SYSTEM_PROMPT,
@@ -57,7 +59,7 @@ def main() -> None:
         system_prompt=AGENT_SYSTEM_PROMPT,
         tools=[ATTEMPT_ATTACK_TOOL],
         initial_messages=build_kickoff_messages(target_text),
-        dispatch=make_dispatch(client, target_text),
+        dispatch=make_dispatch(client, target_text, probe_target, judge_attempt),
         max_iterations=MAX_ROUNDS,
     )
     report = result.final_text

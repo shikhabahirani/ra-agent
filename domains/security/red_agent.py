@@ -12,16 +12,23 @@ attempt_attack tool, dispatch, probe_target, judge):
 
 Plugs into core.agent_loop.run_agent_loop as: a system prompt, tools (plus,
 in structured mode, terminal_tools={"submit_red_report"}), and a dispatch
-closure that routes attempt_attack calls to domains.security.probe.probe_target
-and domains.security.judge.judge_attempt.
+closure built by make_dispatch().
+
+This file does not import domains.security.probe or domains.security.judge
+- dispatch_attempt_attack/make_dispatch take probe_fn/judge_fn as
+parameters instead. Callers decide where those come from: a direct import
+(see redblue_structured.py, attack.py) or an MCP-discovered tool (see
+redblue_mcp.py). Either way, dispatch_attempt_attack's own logic - probe,
+then judge, then combine - never changes.
 """
 
 import json
+from typing import Callable
 
 import anthropic
 
-from domains.security.judge import judge_attempt
-from domains.security.probe import probe_target
+ProbeFn = Callable[[anthropic.Anthropic, str, str], str]
+JudgeFn = Callable[[anthropic.Anthropic, str, str, str], dict]
 
 MAX_ROUNDS = 5
 AGENT_MAX_TOKENS = 3072
@@ -285,7 +292,13 @@ hypothetical findings beyond what you tested.
 """
 
 
-def dispatch_attempt_attack(client: anthropic.Anthropic, target_system_prompt: str, tool_input: dict) -> tuple[bool, str]:
+def dispatch_attempt_attack(
+    client: anthropic.Anthropic,
+    target_system_prompt: str,
+    tool_input: dict,
+    probe_fn: ProbeFn,
+    judge_fn: JudgeFn,
+) -> tuple[bool, str]:
     category = tool_input.get("category", "?")
     rationale = tool_input.get("rationale", "")
     message = tool_input.get("message", "")
@@ -294,7 +307,7 @@ def dispatch_attempt_attack(client: anthropic.Anthropic, target_system_prompt: s
     print(f"  -> {message}")
 
     try:
-        target_response = probe_target(client, target_system_prompt, message)
+        target_response = probe_fn(client, target_system_prompt, message)
     except Exception as exc:
         print(f"  ! target call failed: {exc}")
         return True, f"Error calling target: {exc}"
@@ -302,7 +315,7 @@ def dispatch_attempt_attack(client: anthropic.Anthropic, target_system_prompt: s
     print(f"  <- {target_response[:200]}{'...' if len(target_response) > 200 else ''}")
 
     try:
-        verdict = judge_attempt(client, target_system_prompt, message, target_response)
+        verdict = judge_fn(client, target_system_prompt, message, target_response)
     except Exception as exc:
         print(f"  ! judge call failed: {exc}")
         verdict = {
@@ -321,7 +334,7 @@ def dispatch_attempt_attack(client: anthropic.Anthropic, target_system_prompt: s
     return False, result_text
 
 
-def make_dispatch(client: anthropic.Anthropic, target_system_prompt: str):
+def make_dispatch(client: anthropic.Anthropic, target_system_prompt: str, probe_fn: ProbeFn, judge_fn: JudgeFn):
     count = {"n": 0}
 
     def dispatch(tool_name: str, tool_input: dict) -> tuple[bool, str]:
@@ -329,6 +342,6 @@ def make_dispatch(client: anthropic.Anthropic, target_system_prompt: str):
             return True, f"Unknown tool: {tool_name}"
         count["n"] += 1
         print(f"Attempt {count['n']}/{MAX_ROUNDS}:")
-        return dispatch_attempt_attack(client, target_system_prompt, tool_input)
+        return dispatch_attempt_attack(client, target_system_prompt, tool_input, probe_fn, judge_fn)
 
     return dispatch
